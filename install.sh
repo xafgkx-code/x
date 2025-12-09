@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ============================
-# X-UI v2.3.9 一键安装优化版（自动设置，无需交互）
+# X-UI v2.3.9 一键安装优化版（固定参数，无需交互）
 # ============================
 
 set -e
@@ -47,12 +47,12 @@ fi
 echo "解压 X-UI..."
 tar -xzf x-ui-linux-amd64.tar.gz
 
-# 修复可执行文件路径
-if [ -f "x-ui" ]; then
-    chmod +x x-ui
-elif [ -f "x-ui-linux-amd64/x-ui" ]; then
+# ----------- 修复可执行文件路径 -----------
+if [ -f "x-ui-linux-amd64/x-ui" ]; then
     chmod +x x-ui-linux-amd64/x-ui
     mv x-ui-linux-amd64/x-ui /usr/local/x-ui/x-ui
+elif [ -f "x-ui" ]; then
+    chmod +x x-ui
 else
     echo "解压后找不到可执行文件 x-ui！"
     exit 1
