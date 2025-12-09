@@ -1,44 +1,44 @@
 #!/bin/bash
-# 3X-UI v2.3.9 一键安装脚本
+# 一键安装 X-UI (amd64) + 注册 x‑ui 命令 + systemd 服务 + 第一次配置
 set -e
 
-echo "检测系统环境..."
-OS=$(uname -s)
-ARCH=$(uname -m)
-echo "系统: $OS, 架构: $ARCH"
+# 变量
+XUI_VER="v2.3.9"  # ← 可改为你想固定的版本
+ARCHIVE_URL="https://github.com/MHSanaei/3x-ui/releases/download/${XUI_VER}/x-ui-linux-amd64.tar.gz"
+INSTALL_DIR="/usr/local/x-ui"
+BIN_PATH="$INSTALL_DIR/x-ui"
+SERVICE_PATH="/etc/systemd/system/x-ui.service"
+WRAPPER="/usr/bin/x-ui"
 
-# 安装依赖
-echo "安装依赖包..."
+# 安装必备工具
 apt update
-apt install -y curl wget tar
+apt install -y wget curl tar
 
-# 创建安装目录
-mkdir -p /usr/local/x-ui
-cd /usr/local/x-ui
+# 停止旧服务（如果有）
+systemctl stop x-ui >/dev/null 2>&1 || true
+pkill -f x-ui >/dev/null 2>&1 || true
 
-# 下载 x-ui 二进制文件
-echo "下载 x-ui-linux-amd64.tar.gz..."
-wget -O x-ui-linux-amd64.tar.gz https://github.com/MHSanaei/3x-ui/releases/download/v2.3.9/x-ui-linux-amd64.tar.gz
-
-# 解压
+# 创建目录并下载
+mkdir -p ${INSTALL_DIR}
+cd ${INSTALL_DIR}
+wget -O x-ui-linux-amd64.tar.gz "${ARCHIVE_URL}"
 tar -xzf x-ui-linux-amd64.tar.gz
 chmod +x x-ui
 
-# 下载官方管理脚本
-echo "下载管理脚本 x-ui.sh..."
-wget -O /usr/bin/x-ui https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.sh
-chmod +x /usr/bin/x-ui
+# 下载官方菜单脚本
+wget -O ${WRAPPER} https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.sh
+chmod +x ${WRAPPER}
 
 # 创建 systemd 服务
-echo "创建 systemd 服务..."
-cat >/etc/systemd/system/x-ui.service <<EOF
+cat > ${SERVICE_PATH} <<EOF
 [Unit]
 Description=X-UI Service
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/x-ui/x-ui
+WorkingDirectory=${INSTALL_DIR}
+ExecStart=${BIN_PATH}
 Restart=on-failure
 RestartSec=5s
 
@@ -49,9 +49,9 @@ EOF
 systemctl daemon-reload
 systemctl enable x-ui
 
-# 安装完成提示
-echo "安装完成！你可以运行 'x-ui' 进入管理菜单"
-echo "第一次运行将提示你设置面板端口、用户名、密码"
+echo "################################################"
+echo "Now run 'x-ui' to configure panel port, username and password."
+echo "After configuration, run 'systemctl start x-ui' to start service."
+echo "################################################"
 
-# 启动菜单安装向导
-x-ui
+# 不自动启动，交由用户通过 x-ui 菜单完成设置和启动
