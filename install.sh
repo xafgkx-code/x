@@ -1,113 +1,71 @@
 #!/bin/bash
-# 3X-UI v2.3.9 / v2.8.5 一键安装脚本（Linux 64位）
-# 功能：
-# 1. 安装 x-ui-linux-amd64.tar.gz
-# 2. 自定义面板端口/用户名/密码
-# 3. 注册 systemd 服务
-# 4. 注册 x-ui 命令，支持菜单操作
-# 5. 支持一键开启 BBR
+
+# ============================
+# X-UI v2.3.9 一键安装脚本 (AFGK)
+# ============================
 
 set -e
 
-# =========================
-# 变量设置
-# =========================
+# 配置
 XUI_DIR="/usr/local/x-ui"
-XUI_BIN="$XUI_DIR/x-ui"
-XUI_SERVICE="$XUI_DIR/x-ui.service"
-XUI_SH="/usr/bin/x-ui"
-ARCHIVE_URL="https://github.com/MHSanaei/3x-ui/releases/download/v2.3.9/x-ui-linux-amd64.tar.gz"
-MENU_SCRIPT_URL="https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.sh"
+XUI_PORT=3030
+XUI_USER="AFGK"
+XUI_PASS="AFGK"
+SERVICE_NAME="x-ui"
+DOWNLOAD_URL="https://github.com/MHSanaei/3x-ui/releases/download/v2.3.9/x-ui-linux-amd64.tar.gz"
 
-# =========================
+echo "========================================"
+echo "     一键安装 X-UI v2.3.9"
+echo "========================================"
+
 # 安装依赖
-# =========================
-echo "Installing dependencies..."
 apt update
-apt install -y wget curl tar tzdata
+apt install -y wget tar curl
 
-# =========================
-# 停止旧版本
-# =========================
-if systemctl is-active --quiet x-ui; then
-    echo "Stopping existing x-ui service..."
-    systemctl stop x-ui
-fi
-pkill -f xray || true
-
-# =========================
 # 创建目录
-# =========================
 mkdir -p $XUI_DIR
 cd $XUI_DIR
 
-# =========================
-# 下载 X-UI
-# =========================
-echo "Downloading x-ui..."
-wget -O x-ui-linux-amd64.tar.gz $ARCHIVE_URL
-
-echo "Extracting..."
+# 下载并解压
+echo "下载 X-UI..."
+wget -O x-ui-linux-amd64.tar.gz $DOWNLOAD_URL
 tar -xzf x-ui-linux-amd64.tar.gz
 chmod +x x-ui
 
-# =========================
-# 下载管理脚本
-# =========================
-wget -O $XUI_SH $MENU_SCRIPT_URL
-chmod +x $XUI_SH
+# 配置面板端口和账号
+cat > $XUI_DIR/config.yml <<EOF
+panel:
+  listen: 0.0.0.0:$XUI_PORT
+  username: $XUI_USER
+  password: $XUI_PASS
+EOF
 
-# =========================
-# systemd 服务
-# =========================
-cat > /etc/systemd/system/x-ui.service <<EOF
+# 创建 systemd 服务
+cat > /etc/systemd/system/$SERVICE_NAME.service <<EOF
 [Unit]
-Description=X-UI Service
+Description=X-UI v2.3.9 Service
 After=network.target
 
 [Service]
 Type=simple
+WorkingDirectory=$XUI_DIR
 ExecStart=$XUI_DIR/x-ui
 Restart=on-failure
-RestartSec=5s
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# =========================
-# 设置用户名/密码/端口
-# =========================
-read -p "Please set Panel Port (default 8080): " PANEL_PORT
-PANEL_PORT=${PANEL_PORT:-8080}
-read -p "Please set Username (default admin): " PANEL_USER
-PANEL_USER=${PANEL_USER:-admin}
-read -sp "Please set Password (default 123456): " PANEL_PASS
-echo
-PANEL_PASS=${PANEL_PASS:-123456}
-
-$XUI_BIN setting -port $PANEL_PORT -username $PANEL_USER -password $PANEL_PASS
-
-# =========================
 # 启动服务
-# =========================
 systemctl daemon-reload
-systemctl enable x-ui
-systemctl start x-ui
+systemctl enable $SERVICE_NAME
+systemctl start $SERVICE_NAME
 
-# =========================
-# 显示信息
-# =========================
 echo "========================================"
-echo " X-UI installation completed!"
-echo " Access URL: http://$(curl -s ifconfig.me):$PANEL_PORT"
-echo " Username: $PANEL_USER"
-echo " Password: $PANEL_PASS"
-echo " Use 'x-ui' command to manage panel"
+echo "安装完成！"
+echo "访问面板：http://$(curl -s ifconfig.me):$XUI_PORT"
+echo "用户名：$XUI_USER  密码：$XUI_PASS"
+echo "启动命令：systemctl start $SERVICE_NAME"
+echo "停止命令：systemctl stop $SERVICE_NAME"
+echo "重启命令：systemctl restart $SERVICE_NAME"
 echo "========================================"
-
-# =========================
-# 提示开启 BBR
-# =========================
-echo "You can enable BBR using the menu:"
-echo "x-ui -> 23. Enable BBR"
