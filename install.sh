@@ -1,81 +1,106 @@
 #!/bin/bash
+
 # ============================
-# X-UI v2.3.9 一键安装脚本（清理旧版本 + 修正版）
-# 作者：AFGK
-# 系统：Ubuntu 20.04/22.04 x64
-# CPU 架构：amd64
+# X-UI v2.3.9 一键安装优化版
 # ============================
 
 set -e
 
-XUI_VERSION="v2.3.9"
-XUI_PORT=3030
-XUI_USER="AFGK"
-XUI_PASS="AFGK"
-XUI_DIR="/usr/local/x-ui"
-DOWNLOAD_URL="https://github.com/MHSanaei/3x-ui/releases/download/v2.3.9/x-ui-linux-amd64.tar.gz"
+# ----------- 用户交互 -----------
+read -p "请输入 X-UI 面板端口 (默认 3030): " XUI_PORT
+XUI_PORT=${XUI_PORT:-3030}
 
-echo "========================================"
-echo "       Installing X-UI $XUI_VERSION      "
-echo "========================================"
+read -p "请输入 X-UI 用户名 (默认 AFGK): " XUI_USER
+XUI_USER=${XUI_USER:-AFGK}
 
-# 安装依赖
-apt update -y
-apt install wget tar unzip curl socat -y
+read -p "请输入 X-UI 密码 (默认 AFGK): " XUI_PASS
+XUI_PASS=${XUI_PASS:-AFGK}
 
-# 停止旧服务并删除旧文件
+read -p "是否开启 BBR (y/n, 默认 y): " ENABLE_BBR
+ENABLE_BBR=${ENABLE_BBR:-y}
+
+# ----------- 停止旧进程 -----------
 if systemctl is-active --quiet x-ui; then
+    echo "检测到 X-UI systemd 服务正在运行，正在停止..."
     systemctl stop x-ui
+elif pgrep x-ui > /dev/null; then
+    echo "检测到 X-UI 进程，正在强制停止..."
+    pkill -9 x-ui
 fi
-if systemctl is-enabled --quiet x-ui; then
-    systemctl disable x-ui
+
+# ----------- 清理旧版 -----------
+if [ -d /usr/local/x-ui ]; then
+    echo "正在删除旧版 X-UI 文件..."
+    rm -rf /usr/local/x-ui
 fi
-rm -f /etc/systemd/system/x-ui.service
-rm -rf $XUI_DIR
-rm -f /usr/local/bin/x-ui
-systemctl daemon-reload
 
-# 创建目录
-mkdir -p $XUI_DIR
+if [ -f /etc/systemd/system/x-ui.service ]; then
+    echo "正在删除旧 systemd 服务..."
+    rm -f /etc/systemd/system/x-ui.service
+    systemctl daemon-reload
+fi
 
-# 下载并解压
-cd /tmp
-wget -O x-ui-linux-amd64.tar.gz $DOWNLOAD_URL
-tar -zxvf x-ui-linux-amd64.tar.gz -C $XUI_DIR
+# ----------- 安装 X-UI -----------
+echo "开始安装 X-UI 2.3.9..."
+mkdir -p /usr/local/x-ui
+cd /usr/local/x-ui
 
-# 将实际可执行文件放到 /usr/local/bin
-chmod +x $XUI_DIR/x-ui/x-ui
-mv $XUI_DIR/x-ui/x-ui /usr/local/bin/x-ui
+echo "下载 X-UI..."
+if ! curl -fsSL https://github.com/MHSanaei/3x-ui/releases/download/v2.3.9/x-ui-linux-amd64.tar.gz -o x-ui-linux-amd64.tar.gz; then
+    echo "下载失败，请检查网络或 GitHub 链接！"
+    exit 1
+fi
 
-# 创建 systemd 服务
+tar -xzf x-ui-linux-amd64.tar.gz
+# 查找可执行文件
+if [ -f "x-ui" ]; then
+    chmod +x x-ui
+elif [ -f "x-ui-linux-amd64" ]; then
+    mv x-ui-linux-amd64 x-ui
+    chmod +x x-ui
+else
+    echo "解压后找不到可执行文件 x-ui！"
+    exit 1
+fi
+
+# ----------- 创建 systemd 服务 -----------
 cat >/etc/systemd/system/x-ui.service <<EOF
 [Unit]
-Description=X-UI Panel Service
+Description=X-UI Service
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=/usr/local/bin/x-ui
+ExecStart=/usr/local/x-ui/x-ui -port $XUI_PORT
 Restart=on-failure
-LimitNOFILE=65535
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# 启动并设置开机自启
 systemctl daemon-reload
 systemctl enable x-ui
 systemctl start x-ui
 
-# 设置默认用户名、密码、端口
-x-ui setting -username $XUI_USER
-x-ui setting -password $XUI_PASS
-x-ui setting -port $XUI_PORT
+# 等待面板启动
+sleep 3
 
-echo "========================================"
-echo "       X-UI $XUI_VERSION Installed      "
-echo "Access Panel: http://$(curl -s ifconfig.me):$XUI_PORT"
-echo "Username: $XUI_USER  Password: $XUI_PASS"
-echo "Use 'x-ui' command to manage panel"
-echo "========================================"
+# ----------- 设置用户名密码 -----------
+/usr/local/x-ui/x-ui setting -username $XUI_USER -password $XUI_PASS || true
+
+# ----------- 开启 BBR -----------
+if [[ "$ENABLE_BBR" =~ ^[Yy]$ ]]; then
+    echo "正在开启 BBR..."
+    grep -q "tcp_congestion_control=bbr" /etc/sysctl.conf || echo "net.ipv4.tcp_congestion_control=bbr" >> /etc/sysctl.conf
+    grep -q "default_qdisc=fq" /etc/sysctl.conf || echo "net.core.default_qdisc=fq" >> /etc/sysctl.conf
+    sysctl -p
+    echo "BBR 已启用"
+fi
+
+# ----------- 显示访问信息 -----------
+IP=$(curl -s ifconfig.me || hostname -I | awk '{print $1}')
+echo "================================================="
+echo "X-UI 安装完成！"
+echo "访问地址: http://$IP:$XUI_PORT"
+echo "用户名: $XUI_USER  密码: $XUI_PASS"
+echo "================================================="
