@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # ============================
 # X-UI v2.3.9 一键安装优化版（固定参数，无需交互）
 # ============================
@@ -77,7 +76,6 @@ systemctl daemon-reload
 systemctl enable x-ui
 systemctl start x-ui
 
-# 等待面板启动
 sleep 3
 
 # ----------- 设置用户名密码 -----------
