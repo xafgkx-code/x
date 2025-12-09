@@ -1,23 +1,16 @@
 #!/bin/bash
 
 # ============================
-# X-UI v2.3.9 一键安装优化版
+# X-UI v2.3.9 一键安装优化版（自动设置，无需交互）
 # ============================
 
 set -e
 
-# ----------- 用户交互 -----------
-read -p "请输入 X-UI 面板端口 (默认 3030): " XUI_PORT
-XUI_PORT=${XUI_PORT:-3030}
-
-read -p "请输入 X-UI 用户名 (默认 AFGK): " XUI_USER
-XUI_USER=${XUI_USER:-AFGK}
-
-read -p "请输入 X-UI 密码 (默认 AFGK): " XUI_PASS
-XUI_PASS=${XUI_PASS:-AFGK}
-
-read -p "是否开启 BBR (y/n, 默认 y): " ENABLE_BBR
-ENABLE_BBR=${ENABLE_BBR:-y}
+# ----------- 固定参数 -----------
+XUI_PORT=3030
+XUI_USER="AFGK"
+XUI_PASS="AFGK"
+ENABLE_BBR="y"
 
 # ----------- 停止旧进程 -----------
 if systemctl is-active --quiet x-ui; then
@@ -51,13 +44,15 @@ if ! curl -fsSL https://github.com/MHSanaei/3x-ui/releases/download/v2.3.9/x-ui-
     exit 1
 fi
 
+echo "解压 X-UI..."
 tar -xzf x-ui-linux-amd64.tar.gz
-# 查找可执行文件
+
+# 修复可执行文件路径
 if [ -f "x-ui" ]; then
     chmod +x x-ui
-elif [ -f "x-ui-linux-amd64" ]; then
-    mv x-ui-linux-amd64 x-ui
-    chmod +x x-ui
+elif [ -f "x-ui-linux-amd64/x-ui" ]; then
+    chmod +x x-ui-linux-amd64/x-ui
+    mv x-ui-linux-amd64/x-ui /usr/local/x-ui/x-ui
 else
     echo "解压后找不到可执行文件 x-ui！"
     exit 1
