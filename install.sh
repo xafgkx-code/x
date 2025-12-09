@@ -1,45 +1,57 @@
 #!/bin/bash
-
-# ============================
-# X-UI v2.3.9 一键安装脚本
-# 作者：AFGk 专用脚本
-# CPU 架构：amd64
-# ============================
-
+# 3X-UI v2.3.9 一键安装脚本
 set -e
 
-echo "========================================"
-echo "     开始安装 X-UI v2.3.9 (amd64)"
-echo "========================================"
+echo "检测系统环境..."
+OS=$(uname -s)
+ARCH=$(uname -m)
+echo "系统: $OS, 架构: $ARCH"
 
-# 下载
-echo "[1/5] 下载文件..."
-wget -O /root/x-ui-linux-amd64.tar.gz https://github.com/MHSanaei/3x-ui/releases/download/v2.3.9/x-ui-linux-amd64.tar.gz
+# 安装依赖
+echo "安装依赖包..."
+apt update
+apt install -y curl wget tar
+
+# 创建安装目录
+mkdir -p /usr/local/x-ui
+cd /usr/local/x-ui
+
+# 下载 x-ui 二进制文件
+echo "下载 x-ui-linux-amd64.tar.gz..."
+wget -O x-ui-linux-amd64.tar.gz https://github.com/MHSanaei/3x-ui/releases/download/v2.3.9/x-ui-linux-amd64.tar.gz
 
 # 解压
-echo "[2/5] 解压文件..."
-tar -xzvf /root/x-ui-linux-amd64.tar.gz -C /root/
+tar -xzf x-ui-linux-amd64.tar.gz
+chmod +x x-ui
 
-# 移动到目录
-echo "[3/5] 安装 X-UI 文件..."
-mkdir -p /usr/local/x-ui
-cp -r /root/x-ui/* /usr/local/x-ui/
+# 下载官方管理脚本
+echo "下载管理脚本 x-ui.sh..."
+wget -O /usr/bin/x-ui https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.sh
+chmod +x /usr/bin/x-ui
 
-# 安装 systemd 服务
-echo "[4/5] 安装 systemd 服务..."
-cp /usr/local/x-ui/x-ui.service /etc/systemd/system/
+# 创建 systemd 服务
+echo "创建 systemd 服务..."
+cat >/etc/systemd/system/x-ui.service <<EOF
+[Unit]
+Description=X-UI Service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/x-ui/x-ui
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 systemctl daemon-reload
 systemctl enable x-ui
 
-# 启动服务
-echo "[5/5] 启动 X-UI..."
-systemctl restart x-ui
+# 安装完成提示
+echo "安装完成！你可以运行 'x-ui' 进入管理菜单"
+echo "第一次运行将提示你设置面板端口、用户名、密码"
 
-echo "========================================"
-echo " X-UI v2.3.9 安装成功！！！"
-echo "----------------------------------------"
-echo " 状态查看: systemctl status x-ui"
-echo " 默认面板端口: 54321"
-echo " 如果无法访问，请检查：ufw 或 安全组"
-echo "========================================"
-
+# 启动菜单安装向导
+x-ui
