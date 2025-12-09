@@ -1,4 +1,5 @@
 #!/bin/bash
+
 # ============================
 # X-UI v2.3.9 一键安装优化版（固定参数，无需交互）
 # ============================
@@ -46,12 +47,10 @@ fi
 echo "解压 X-UI..."
 tar -xzf x-ui-linux-amd64.tar.gz
 
-# ----------- 修复可执行文件路径 -----------
-if [ -f "x-ui-linux-amd64/x-ui" ]; then
-    chmod +x x-ui-linux-amd64/x-ui
-    mv x-ui-linux-amd64/x-ui /usr/local/x-ui/x-ui
-elif [ -f "x-ui" ]; then
-    chmod +x x-ui
+# ----------- 修复可执行文件路径（关键修改） -----------
+if [ -f "x-ui/x-ui" ]; then
+    chmod +x x-ui/x-ui
+    mv x-ui/x-ui /usr/local/x-ui/x-ui
 else
     echo "解压后找不到可执行文件 x-ui！"
     exit 1
@@ -76,6 +75,7 @@ systemctl daemon-reload
 systemctl enable x-ui
 systemctl start x-ui
 
+# 等待面板启动
 sleep 3
 
 # ----------- 设置用户名密码 -----------
